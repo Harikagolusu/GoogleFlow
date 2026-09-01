@@ -1,0 +1,6 @@
+# GoogleFlow backend — Day 1 MVP
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.9.0
+google-genai>=1.2.0
+python-dotenv>=1.0.1
