@@ -12,6 +12,10 @@ lerna-debug.log*
 .env.*
 !.env.example
 
+# Firebase service-account credentials (never commit)
+firebase-service-account*.json
+*serviceAccount*.json
+
 # Dependencies / build output
 node_modules
 dist
@@ -22,6 +26,7 @@ dist-ssr
 __pycache__/
 *.py[cod]
 backend/.venv/
+backend/.deps/
 
 # Editor directories and files
 .vscode/*

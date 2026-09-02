@@ -2,12 +2,17 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { workflowService } from '../services/workflowService';
+import { authService } from '../services/authService';
+import { useAuthUser } from '../hooks/useAuthUser';
 import { ApiError } from '../services/http';
+import { GoogleGMark as GoogleMark } from '../components/ServiceLogo';
 
 export const Ask: React.FC = () => {
   const navigate = useNavigate();
+  const { signedIn, loading: authLoading, isAuthEnabled } = useAuthUser();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState('');
 
   const suggestions = [
@@ -16,11 +21,29 @@ export const Ask: React.FC = () => {
     'Help me organize my passport appointment...',
   ];
 
-  const canSubmit = query.trim().length > 0 && !loading;
+  // With Firebase configured, LifeFlows are user-owned: require sign-in.
+  const needsSignIn = isAuthEnabled && !signedIn;
+  const canSubmit = query.trim().length > 0 && !loading && !needsSignIn && !authLoading;
+
+  const handleSignIn = async () => {
+    setSigningIn(true);
+    setError('');
+    try {
+      await authService.signInWithGoogle();
+    } catch (err) {
+      setError(
+        err instanceof Error && !err.message.toLowerCase().includes('popup')
+          ? err.message
+          : 'Google sign-in was cancelled.',
+      );
+    } finally {
+      setSigningIn(false);
+    }
+  };
 
   const handleSubmit = async () => {
     const trimmed = query.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || loading || needsSignIn) return;
 
     setLoading(true);
     setError('');
@@ -55,6 +78,27 @@ export const Ask: React.FC = () => {
             <p className="text-xs text-gray-400">Describe a situation and I'll turn it into a LifeFlow</p>
           </div>
         </div>
+
+        {needsSignIn && (
+          <div className="mb-6 rounded-2xl border border-gray-100 bg-[#F8FAFC] p-5 text-center">
+            <p className="text-sm font-medium text-gray-900 mb-1">Sign in to create your LifeFlow</p>
+            <p className="text-xs text-gray-500 mb-4">
+              LifeFlows are saved to your account so you can pick up right where you left off.
+            </p>
+            <button
+              onClick={handleSignIn}
+              disabled={signingIn || authLoading}
+              className="inline-flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-60 rounded-full px-5 py-2.5 text-sm font-medium text-gray-700 transition-colors"
+            >
+              {signingIn ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <GoogleMark className="w-4 h-4" />
+              )}
+              Continue with Google
+            </button>
+          </div>
+        )}
 
         <textarea
           value={query}

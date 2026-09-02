@@ -19,6 +19,10 @@ export class ApiError extends Error {
   }
 }
 
+interface HttpOptions {
+  headers?: Record<string, string>;
+}
+
 async function request<T>(path: string, init: RequestInit): Promise<T> {
   const baseUrl = getApiUrl();
   let response: Response;
@@ -53,14 +57,22 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   return data as T;
 }
 
-export function apiGet<T>(path: string): Promise<T> {
-  return request<T>(path, { method: 'GET' });
+export function apiGet<T>(path: string, options: HttpOptions = {}): Promise<T> {
+  return request<T>(path, { method: 'GET', headers: options.headers });
 }
 
-export function apiPost<T>(path: string, body: unknown): Promise<T> {
+export function apiPost<T>(path: string, body: unknown, options: HttpOptions = {}): Promise<T> {
   return request<T>(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(options.headers ?? {}) },
+    body: JSON.stringify(body),
+  });
+}
+
+export function apiPatch<T>(path: string, body: unknown, options: HttpOptions = {}): Promise<T> {
+  return request<T>(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...(options.headers ?? {}) },
     body: JSON.stringify(body),
   });
 }

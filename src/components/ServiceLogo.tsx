@@ -222,6 +222,16 @@ const LOGOS: Record<string, LogoEntry> = {
   },
 };
 
+// Standalone multicolor Google "G" mark (sign-in buttons, fallbacks).
+export const GoogleGMark: React.FC<{ className?: string }> = ({ className }) => {
+  const g = LOGOS.search;
+  return (
+    <svg viewBox={g.viewBox} className={className} role="img" aria-label="Google">
+      {g.render('google-g-mark')}
+    </svg>
+  );
+};
+
 // Any unknown service falls back to the multicolor Google "G".
 const DEFAULT_LOGO_KEY = 'search';
 
