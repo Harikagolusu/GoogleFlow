@@ -41,3 +41,9 @@ class AskRequest(BaseModel):
     """POST /api/ask request body."""
 
     query: str
+
+
+class ChecklistItemUpdate(BaseModel):
+    """PATCH /api/workflows/{id}/checklist/{item_id} request body."""
+
+    completed: bool
