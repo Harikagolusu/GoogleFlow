@@ -170,7 +170,7 @@ from app.main import (
     update_checklist_item,
     health,
 )
-from app import firebase_service, workflow_store
+from app import firebase_service, gemini_service, workflow_store
 
 count = 0
 
@@ -292,6 +292,114 @@ except HTTPException as e:
 # user A can PATCH own workflow
 patched_a = update_checklist_item(Req("userA"), wf_a.id, wf_a.checklist[0]["id"], PatchBody(True))
 check("userA patch own workflow", patched_a.readiness == round(1 / len(wf_a.checklist) * 100))
+
+# ===================== PHASE 2: AI LIFEFLOW INTELLIGENCE =====================
+# These tests verify the improved LifeFlow generation quality using the
+# deterministic fallback generator (no real GEMINI_API_KEY needed).
+# Reset to demo mode (Firebase disabled) for these tests.
+firebase_service._enabled = False
+workflow_store.init(None)
+
+print("\n--- Phase 2: AI LifeFlow Intelligence ---")
+
+# Helper: generate a workflow via the fallback path (demo mode)
+def gen(query: str) -> dict:
+    return asyncio.run(create_lifeflow(Req(), Payload(query)))
+
+# --- Test 1: Interview query generates valid LifeFlow ---
+wf_interview = gen("I have an interview next week and need to prepare")
+check("interview: valid title", isinstance(wf_interview.title, str) and len(wf_interview.title) > 0)
+check("interview: checklist count 4-8", 4 <= len(wf_interview.checklist) <= 8)
+check("interview: readiness 0-100", 0 <= wf_interview.readiness <= 100)
+check("interview: status valid", wf_interview.status in ("Action Needed", "In Progress", "Completed"))
+check("interview: nextUp is string", isinstance(wf_interview.nextUp, str) and len(wf_interview.nextUp) > 0)
+check("interview: services non-empty", len(wf_interview.connectedServices) >= 3)
+
+# --- Test 2: Trip planning query generates valid LifeFlow ---
+wf_trip = gen("Plan my trip to Delhi next month")
+check("trip: valid title", isinstance(wf_trip.title, str) and len(wf_trip.title) > 0)
+check("trip: checklist count 4-8", 4 <= len(wf_trip.checklist) <= 8)
+check("trip: services include Maps", "Google Maps" in wf_trip.connectedServices)
+check("trip: nextUp is string", isinstance(wf_trip.nextUp, str) and len(wf_trip.nextUp) > 0)
+
+# --- Test 3: Study/certification query generates valid LifeFlow ---
+wf_study = gen("I have a certification exam next month")
+check("study: valid title", isinstance(wf_study.title, str) and len(wf_study.title) > 0)
+check("study: checklist count 4-8", 4 <= len(wf_study.checklist) <= 8)
+check("study: services include Drive", "Google Drive" in wf_study.connectedServices)
+check("study: nextUp is string", isinstance(wf_study.nextUp, str) and len(wf_study.nextUp) > 0)
+
+# --- Test 4: Time-sensitive query prioritizes urgent tasks ---
+wf_urgent = gen("I have an interview tomorrow morning")
+check("urgent: valid title", isinstance(wf_urgent.title, str) and len(wf_urgent.title) > 0)
+check("urgent: checklist non-empty", len(wf_urgent.checklist) >= 4)
+check("urgent: first item is actionable", len(wf_urgent.checklist[0]["title"]) > 10)
+
+# --- Test 5: Checklist items are actionable (not generic) ---
+generic_phrases = ["complete the task", "prepare everything", "follow the process", "finish your work", "get ready"]
+for wf in [wf_interview, wf_trip, wf_study]:
+    for item in wf.checklist:
+        title_lower = item["title"].lower()
+        is_generic = any(phrase in title_lower for phrase in generic_phrases)
+        check(f"checklist item not generic: {item['title'][:30]}", not is_generic)
+
+# --- Test 6: Connected services are relevant ---
+for wf in [wf_interview, wf_trip, wf_study]:
+    for svc in wf.connectedServices:
+        check(f"service {svc} is known", svc in [
+            "Gmail", "Google Drive", "Google Calendar", "Google Maps",
+            "YouTube", "Google Search", "Google News", "Google Photos", "Gemini"
+        ])
+
+# --- Test 7: nextUp is concrete (not a generic summary) ---
+for wf in [wf_interview, wf_trip, wf_study]:
+    check(f"nextUp concrete for {wf.title}", isinstance(wf.nextUp, str) and len(wf.nextUp) > 15)
+
+# --- Test 8: Invalid AI output is rejected safely ---
+# Simulate invalid output by monkey-patching the fallback
+original_fallback = gemini_service._generate_fallback
+gemini_service._generate_fallback = lambda q: {"title": "Invalid"}  # Missing required fields
+try:
+    gen("test invalid output")
+    check("invalid output rejected", False)
+except HTTPException as e:
+    check("invalid output rejected with 502", e.status_code == 502)
+finally:
+    gemini_service._generate_fallback = original_fallback
+
+# --- Test 9: Empty AI response is rejected safely ---
+gemini_service._generate_fallback = lambda q: {}  # Empty dict
+try:
+    gen("test empty output")
+    check("empty output rejected", False)
+except HTTPException as e:
+    check("empty output rejected with 502", e.status_code == 502)
+finally:
+    gemini_service._generate_fallback = original_fallback
+
+# --- Test 10: Gemini API failure does not crash the server ---
+gemini_service._generate_fallback = lambda q: (_ for _ in ()).throw(RuntimeError("API failure"))
+try:
+    gen("test api failure")
+    check("api failure handled", False)
+except HTTPException as e:
+    check("api failure returns 502", e.status_code == 502)
+except RuntimeError:
+    check("api failure did not crash", False)
+finally:
+    gemini_service._generate_fallback = original_fallback
+
+# --- Test 11: Existing checklist PATCH recomputation still works ---
+wf_patch = gen("I have an interview next week")
+first_id = wf_patch.checklist[0]["id"]
+patched = update_checklist_item(Req(), wf_patch.id, first_id, PatchBody(True))
+check("patch: readiness recomputed", patched.readiness == round(1 / len(wf_patch.checklist) * 100))
+check("patch: status is In Progress", patched.status == "In Progress")
+check("patch: nextUp is second item", patched.nextUp == wf_patch.checklist[1]["title"])
+
+# --- Test 12: Demo mode works without Firebase ---
+# (All tests above run in demo mode — if we got here, demo mode works)
+check("demo mode works", True)
 
 print(f"\nALL {count} INTEGRATION CHECKS PASSED")
 

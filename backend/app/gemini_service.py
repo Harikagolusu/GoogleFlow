@@ -72,14 +72,21 @@ def generate_workflow_dict(query: str, workflow_id: str) -> dict[str, Any]:
 
     Uses the real Gemini API when a key is configured, otherwise falls back
     to a deterministic local generator so the demo flow keeps working.
+    Any exception from generation is converted to GeminiError so the API
+    layer can return a clean 502 instead of crashing.
     """
-    client = _get_client()
-    if client is None:
-        return _clean_workflow_dict(_generate_fallback(query), workflow_id)
+    try:
+        client = _get_client()
+        if client is None:
+            return _clean_workflow_dict(_generate_fallback(query), workflow_id)
 
-    text = _call_gemini(client, query)
-    raw = _extract_json(text)
-    return _clean_workflow_dict(raw, workflow_id)
+        text = _call_gemini(client, query)
+        raw = _extract_json(text)
+        return _clean_workflow_dict(raw, workflow_id)
+    except GeminiError:
+        raise
+    except Exception as exc:
+        raise GeminiError(f"LifeFlow generation failed: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +107,7 @@ def _get_client() -> Any:
 
 
 def _call_gemini(client: Any, query: str) -> str:
+    """Call Gemini and return the raw text response."""
     try:
         from google.genai import types
         model = os.getenv("GEMINI_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
@@ -156,6 +164,14 @@ Rules:
   dates the user did not provide. Mark unclear details as steps to verify.
 - "connectedServices" means services relevant to this workflow — NOT a claim
   that any real Google account access has happened.
+- CHECKLIST items must be SPECIFIC and ACTIONABLE. Never use generic items like:
+  "Complete the task", "Prepare everything", "Follow the process", "Finish your
+  work", "Get ready", "Do what's needed". Instead, describe a concrete action.
+- If the user mentions TIME (tomorrow, next week, Friday, in 3 days), prioritize
+  the most urgent preparation tasks first in the checklist.
+- "nextUp" must be the single most useful IMMEDIATE action — concrete and
+  specific, not a generic summary. Bad: "Prepare for interview". Good: "Review
+  the job description and identify the top 3 skills to prepare".
 
 Here is an example of the expected shape (values are illustrative):
 
@@ -388,22 +404,35 @@ def _fallback_interview(query: str) -> dict[str, Any]:
     location = _hint_location(query)
     if not location and any(k in query.lower() for k in ("online", "virtual", "zoom")):
         location = "Online"
+    # Time-aware prioritization: if urgent, put most critical prep first
+    urgent = any(k in query.lower() for k in ("tomorrow", "today", "tonight", "in 1 day", "in one day"))
+    if urgent:
+        checklist = [
+            {"id": "c1", "title": "Review the job description and highlight required skills", "completed": False},
+            {"id": "c2", "title": "Research the company's products and recent news", "completed": False},
+            {"id": "c3", "title": "Prepare answers for likely technical questions", "completed": False},
+            {"id": "c4", "title": "Practice explaining your past projects concisely", "completed": False},
+            {"id": "c5", "title": "Update and review your resume", "completed": False},
+            {"id": "c6", "title": "Prepare 3-5 questions to ask the interviewer", "completed": False},
+        ]
+    else:
+        checklist = [
+            {"id": "c1", "title": "Review the job description and identify key skills to prepare", "completed": False},
+            {"id": "c2", "title": "Research the company's products, culture, and recent work", "completed": False},
+            {"id": "c3", "title": "Prepare answers for likely technical or role-specific questions", "completed": False},
+            {"id": "c4", "title": "Practice explaining your previous projects and experience aloud", "completed": False},
+            {"id": "c5", "title": "Update and review your resume for relevance", "completed": False},
+            {"id": "c6", "title": "Prepare 3-5 thoughtful questions to ask the interviewer", "completed": False},
+        ]
     return {
-        "title": "Job Interview Prep",
+        "title": "Interview Preparation",
         "emoji": "💼",
         "date": _hint_date(query),
         "location": location,
         "status": "Action Needed",
         "readiness": 15,
-        "nextUp": "Review the job description and research the company",
-        "checklist": [
-            {"id": "c1", "title": "Confirm interview time and mode", "completed": False},
-            {"id": "c2", "title": "Review the job description and role requirements", "completed": False},
-            {"id": "c3", "title": "Research the company", "completed": False},
-            {"id": "c4", "title": "Prepare answers and practice aloud", "completed": False},
-            {"id": "c5", "title": "Prepare questions to ask the interviewer", "completed": False},
-            {"id": "c6", "title": "Set up a quiet, distraction-free interview space", "completed": False},
-        ],
+        "nextUp": checklist[0]["title"],
+        "checklist": checklist,
         "connectedServices": [
             "Gmail", "Google Calendar", "Google Drive", "YouTube", "Google Search", "Gemini",
         ],
@@ -418,17 +447,17 @@ def _fallback_trip(query: str) -> dict[str, Any]:
         "location": _hint_location(query),
         "status": "Action Needed",
         "readiness": 15,
-        "nextUp": "Confirm travel dates and bookings",
+        "nextUp": "Confirm travel dates and book flights if not done",
         "checklist": [
-            {"id": "c1", "title": "Confirm travel dates and bookings", "completed": False},
+            {"id": "c1", "title": "Confirm travel dates and book flights if not done", "completed": False},
             {"id": "c2", "title": "Review hotel and transport reservations", "completed": False},
-            {"id": "c3", "title": "Check required documents or IDs", "completed": False},
-            {"id": "c4", "title": "Plan itinerary and places to visit", "completed": False},
-            {"id": "c5", "title": "Pack essentials", "completed": False},
-            {"id": "c6", "title": "Save maps and directions offline", "completed": False},
+            {"id": "c3", "title": "Check passport, visa, and required travel documents", "completed": False},
+            {"id": "c4", "title": "Plan itinerary and bookmark places to visit", "completed": False},
+            {"id": "c5", "title": "Pack essentials based on weather and activities", "completed": False},
+            {"id": "c6", "title": "Save maps, directions, and key addresses offline", "completed": False},
         ],
         "connectedServices": [
-            "Gmail", "Google Calendar", "Google Maps", "Google Drive", "Google News", "Gemini",
+            "Gmail", "Google Calendar", "Google Maps", "Google Drive", "Google Photos", "Gemini",
         ],
     }
 
@@ -441,14 +470,14 @@ def _fallback_exam(query: str) -> dict[str, Any]:
         "location": _hint_location(query),
         "status": "Action Needed",
         "readiness": 10,
-        "nextUp": "Create a study plan",
+        "nextUp": "Review the syllabus and create a study schedule",
         "checklist": [
-            {"id": "c1", "title": "Create a study plan", "completed": False},
-            {"id": "c2", "title": "Collect study materials", "completed": False},
-            {"id": "c3", "title": "Review the syllabus or exam pattern", "completed": False},
+            {"id": "c1", "title": "Review the syllabus and create a study schedule", "completed": False},
+            {"id": "c2", "title": "Collect study materials, notes, and reference books", "completed": False},
+            {"id": "c3", "title": "Identify key topics and areas of weakness", "completed": False},
             {"id": "c4", "title": "Practice with past papers or mock tests", "completed": False},
-            {"id": "c5", "title": "Confirm exam date, time and venue", "completed": False},
-            {"id": "c6", "title": "Keep admit card and photo ID ready", "completed": False},
+            {"id": "c5", "title": "Confirm exam date, time, and venue", "completed": False},
+            {"id": "c6", "title": "Keep admit card, ID, and stationery ready", "completed": False},
         ],
         "connectedServices": [
             "Gmail", "Google Calendar", "Google Drive", "YouTube", "Google Search", "Gemini",
@@ -464,13 +493,13 @@ def _fallback_generic(query: str) -> dict[str, Any]:
         "location": _hint_location(query),
         "status": "Action Needed",
         "readiness": 10,
-        "nextUp": "Break the goal into clear next actions",
+        "nextUp": "Clarify the goal and identify the first concrete step",
         "checklist": [
             {"id": "c1", "title": "Clarify the goal and desired outcome", "completed": False},
-            {"id": "c2", "title": "List what is already in place", "completed": False},
-            {"id": "c3", "title": "Identify what is missing or unclear", "completed": False},
-            {"id": "c4", "title": "Set the next concrete action", "completed": False},
-            {"id": "c5", "title": "Schedule time to work on it", "completed": False},
+            {"id": "c2", "title": "List what resources and knowledge you already have", "completed": False},
+            {"id": "c3", "title": "Identify gaps and what you need to learn or gather", "completed": False},
+            {"id": "c4", "title": "Break the goal into smaller actionable steps", "completed": False},
+            {"id": "c5", "title": "Schedule dedicated time to work on it", "completed": False},
         ],
         "connectedServices": ["Gmail", "Google Calendar", "Google Drive", "Gemini"],
     }
