@@ -46,6 +46,7 @@ function init(): void {
 }
 
 function getAuthState(): AuthState {
+  init();
   return { available: isFirebaseConfigured(), user: currentUser, resolved: authResolved };
 }
 

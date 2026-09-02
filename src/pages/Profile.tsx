@@ -44,13 +44,13 @@ export const Profile: React.FC = () => {
   };
 
   const displayName =
-    signedIn && user?.displayName ? user.displayName : 'Harika';
+    signedIn && user?.displayName ? user.displayName : 'Guest';
   const displayEmail =
     signedIn && user?.email
       ? user.email
       : isAuthEnabled
-        ? 'Sign in with Google to sync your LifeFlows'
-        : 'harika@gmail.com';
+        ? 'Sign in to sync your LifeFlows'
+        : 'Demo mode — sign in to save your LifeFlows';
   const initial = displayName.trim().charAt(0).toUpperCase();
 
   return (
@@ -68,7 +68,7 @@ export const Profile: React.FC = () => {
             {initial}
           </div>
         )}
-        <h1 className="text-4xl md:text-5xl font-serif text-gray-900 mb-2">{displayName}</h1>
+                <h1 className="text-4xl md:text-5xl font-serif text-gray-900 mb-2">{displayName}</h1>
         <p className="text-lg text-gray-500">{displayEmail}</p>
         {isAuthEnabled && !signedIn && (
           <button
@@ -77,6 +77,16 @@ export const Profile: React.FC = () => {
           >
             <GoogleGMark className="w-5 h-5" />
             Continue with Google
+          </button>
+        )}
+        {signedIn && isAuthEnabled && (
+          <button
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="mt-6 inline-flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-full px-6 py-3 text-sm font-medium shadow-sm transition-colors disabled:opacity-60"
+          >
+            <LogOut className="w-5 h-5" />
+            {signingOut ? 'Signing out…' : 'Sign out'}
           </button>
         )}
       </header>
@@ -131,17 +141,7 @@ export const Profile: React.FC = () => {
               Appearance
             </span>
           </button>
-          {isAuthEnabled && !signedIn ? (
-            <button
-              onClick={handleSignIn}
-              className="w-full flex items-center justify-between py-3 text-gray-700 hover:text-gray-900 transition-colors"
-            >
-              <span className="flex items-center gap-3">
-                <GoogleGMark className="w-5 h-5" />
-                Sign in with Google
-              </span>
-            </button>
-          ) : (
+                    {signedIn ? (
             <button
               onClick={handleSignOut}
               disabled={signingOut}
@@ -152,7 +152,17 @@ export const Profile: React.FC = () => {
                 {signingOut ? 'Signing out…' : 'Sign out'}
               </span>
             </button>
-          )}
+          ) : isAuthEnabled ? (
+            <button
+              onClick={handleSignIn}
+              className="w-full flex items-center justify-between py-3 text-gray-700 hover:text-gray-900 transition-colors"
+            >
+              <span className="flex items-center gap-3">
+                <GoogleGMark className="w-5 h-5" />
+                Sign in with Google
+              </span>
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
