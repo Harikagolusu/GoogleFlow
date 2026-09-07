@@ -67,7 +67,6 @@ export interface UnifiedAnalyzeResult {
 export const workflowService = {
   async getWorkflows(): Promise<Workflow[]> {
     if (isUserAuthenticated()) {
-      // AUTHENTICATED: only real backend workflows, NEVER mock data.
       try {
         const headers = await authHeaders();
         const userWorkflows = await apiGet<Workflow[]>('/api/workflows', { headers });
@@ -77,23 +76,11 @@ export const workflowService = {
         return [];
       }
     }
+    return [];
+  },
 
-    // DEMO MODE: mock data + anything generated this session.
-    const local = [...demoWorkflows];
-    try {
-      const backend = await apiGet<Workflow[]>('/api/workflows');
-      const byId = new Map<string, Workflow>();
-      for (const w of local) byId.set(w.id, w);
-      for (const b of backend) {
-        if (!byId.has(b.id)) byId.set(b.id, b);
-      }
-      const merged = [...byId.values()];
-      const mockIds = new Set(demoWorkflows.map(w => w.id));
-      generatedWorkflows = merged.filter(w => !mockIds.has(w.id));
-      return merged;
-    } catch {
-      return local;
-    }
+  async refreshWorkflows(): Promise<Workflow[]> {
+    return this.getWorkflows();
   },
 
   async getWorkflowById(id: string): Promise<Workflow | undefined> {

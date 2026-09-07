@@ -1,23 +1,37 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles, ChevronRight } from 'lucide-react';
+import { Sparkles, ChevronRight, RefreshCw } from 'lucide-react';
 import { workflowService } from '../services/workflowService';
 import type { Workflow } from '../types/workflow';
 import type { Service } from '../types/service';
 import { ServiceLogo } from '../components/ServiceLogo';
+import { authService } from '../services/authService';
 
 export const Dashboard: React.FC = () => {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const isLoggedIn = authService.isAvailable() && Boolean(authService.getCurrentUser());
 
   useEffect(() => {
-    Promise.all([workflowService.getWorkflows(), workflowService.getServices()]).then(([w, s]) => {
-      setWorkflows(w);
-      setServices(s);
-      setLoading(false);
-    });
+    loadData();
   }, []);
+
+  async function loadData() {
+    setLoading(true);
+    const [w, s] = await Promise.all([workflowService.getWorkflows(), workflowService.getServices()]);
+    setWorkflows(w);
+    setServices(s);
+    setLoading(false);
+  }
+
+  async function handleRefresh() {
+    setIsRefreshing(true);
+    await loadData();
+    setIsRefreshing(false);
+  }
 
   if (loading) {
     return <div className="p-8 text-center text-gray-500 mt-20">Loading...</div>;
@@ -119,6 +133,31 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
+      {!loading && workflows.length === 0 && (
+        <div className="w-full max-w-2xl mt-16 text-center">
+          <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
+            <div className="text-4xl mb-4">🚀</div>
+            <h3 className="text-xl font-medium text-gray-900 mb-2">No LifeFlows yet</h3>
+            <p className="text-gray-500 mb-6">
+              {isLoggedIn
+                ? 'Create your first LifeFlow by asking what you\'d like to accomplish.'
+                : 'Sign in with Google to create and manage your LifeFlows.'}
+            </p>
+            {isLoggedIn ? (
+              <Link
+                to="/ask"
+                className="inline-flex items-center gap-2 bg-google-blue hover:bg-blue-600 text-white rounded-full px-6 py-3 font-medium transition-colors"
+              >
+                <Sparkles className="w-4 h-4" />
+                Ask LifeFlow
+              </Link>
+            ) : (
+              <p className="text-sm text-gray-400">Sign in to get started</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-5xl mt-20">
         <h2 className="text-2xl font-serif text-gray-900 mb-6">Everything working for you</h2>
         <div className="flex flex-wrap gap-4">
@@ -141,9 +180,19 @@ export const Dashboard: React.FC = () => {
         <div className="w-full max-w-5xl mt-20">
           <div className="flex justify-between items-end mb-6">
             <h2 className="text-2xl font-serif text-gray-900">Recent LifeFlows</h2>
-            <Link to="/flows" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center gap-1">
-              See all <ChevronRight className="w-4 h-4" />
-            </Link>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="p-2 rounded-full bg-white border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                title="Refresh"
+              >
+                <RefreshCw className={`w-4 h-4 text-gray-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <Link to="/flows" className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center gap-1">
+                See all <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
           <div className="space-y-3">
             {recentFlows.map(flow => (
