@@ -30,8 +30,9 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.responses import RedirectResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import ValidationError
 
 FRONTEND_DIST = os.environ.get("FRONTEND_DIST", str(Path(__file__).resolve().parent.parent.parent / "dist"))
@@ -106,6 +107,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class COOPMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+        return response
+
+app.add_middleware(COOPMiddleware)
 
 # Mount static files (JS, CSS, images) from the React build
 _dist_path = Path(FRONTEND_DIST)
