@@ -14,7 +14,7 @@ WORKDIR /app
 
 # Copy and build frontend
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 RUN npm run build
