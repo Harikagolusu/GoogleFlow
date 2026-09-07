@@ -6,3 +6,6 @@ google-genai>=1.2.0
 python-dotenv>=1.0.1
 # Firebase Admin: ID token verification + Cloud Firestore persistence
 firebase-admin>=6.5.0
+# Gmail API access (fetching messages, token refresh)
+google-api-python-client>=2.100.0
+google-auth-httplib2>=0.2.0

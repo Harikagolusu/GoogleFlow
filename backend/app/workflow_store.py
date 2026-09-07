@@ -46,36 +46,61 @@ def save_workflow(uid: str | None, workflow: dict[str, Any], *, is_new: bool = F
         _memory_workflows[workflow["id"]] = workflow
         return
 
-    doc = _doc(uid or "", workflow["id"])
-    now = _now_iso()
-    if is_new:
-        data = {**workflow, "createdAt": now, "updatedAt": now}
-        doc.set(data)
-    else:
-        doc.set({**workflow, "updatedAt": now}, merge=True)
+    try:
+        doc = _doc(uid or "", workflow["id"])
+        now = _now_iso()
+        if is_new:
+            data = {**workflow, "createdAt": now, "updatedAt": now}
+            doc.set(data)
+        else:
+            doc.set({**workflow, "updatedAt": now}, merge=True)
+    except Exception:
+        # Firestore disabled — keep in memory
+        _memory_workflows[workflow["id"]] = workflow
+
+
+def _recalculate_readiness(workflow: dict[str, Any]) -> dict[str, Any]:
+    """Recalculate readiness and status from checklist completion count."""
+    checklist = workflow.get("checklist") or []
+    if not checklist:
+        return workflow
+    completed = sum(1 for item in checklist if item.get("completed"))
+    total = len(checklist)
+    readiness = round(completed / total * 100) if total > 0 else 0
+    status = "Completed" if readiness == 100 else "In Progress" if readiness > 0 else "Action Needed"
+    workflow = dict(workflow)
+    workflow["readiness"] = readiness
+    workflow["status"] = status
+    return workflow
 
 
 def get_workflow(uid: str | None, workflow_id: str) -> dict[str, Any] | None:
     if _firestore is None:
         return _memory_workflows.get(workflow_id)
 
-    snapshot = _doc(uid or "", workflow_id).get()
+    try:
+        snapshot = _doc(uid or "", workflow_id).get()
+    except Exception:
+        return _memory_workflows.get(workflow_id)
     if not snapshot.exists:
         return None
-    return dict(snapshot.to_dict() or {})
+    return _recalculate_readiness(dict(snapshot.to_dict() or {}))
 
 
 def list_workflows(uid: str | None, limit: int = 50) -> list[dict[str, Any]]:
     if _firestore is None:
-        return list(_memory_workflows.values())
+        return [_recalculate_readiness(w) for w in _memory_workflows.values()]
 
-    snapshots = (
-        _flows_collection(uid or "")
-        .order_by("updatedAt", direction="DESCENDING")
-        .limit(limit)
-        .stream()
-    )
-    return [dict(snapshot.to_dict() or {}) for snapshot in snapshots]
+    try:
+        snapshots = (
+            _flows_collection(uid or "")
+            .order_by("updatedAt", direction="DESCENDING")
+            .limit(limit)
+            .stream()
+        )
+        return [_recalculate_readiness(dict(snapshot.to_dict() or {})) for snapshot in snapshots]
+    except Exception:
+        return [_recalculate_readiness(w) for w in _memory_workflows.values()]
 
 
 # ---------------------------------------------------------------------------
@@ -117,3 +142,80 @@ def apply_checklist_update(
     updated["status"] = status
     updated["nextUp"] = next_item or "Review your plan"
     return updated
+
+
+# ---------------------------------------------------------------------------
+# Deduplication for Gmail-analyzed workflows
+# ---------------------------------------------------------------------------
+
+
+def has_existing_flow(uid: str | None, source_message_ids: list[str]) -> bool:
+    """Check if a flow with these source message IDs already exists for the user."""
+    # Check message ids + also event/file ids if caller passed them (backward compat)
+    if not source_message_ids:
+        return False
+    return _has_overlap(uid, source_message_ids)
+
+
+def _has_overlap(uid: str | None, source_ids: list[str]) -> bool:
+    if not source_ids:
+        return False
+    source_set = set(source_ids)
+    if _firestore is None:
+        for wf in _memory_workflows.values():
+            existing = set()
+            existing.update(wf.get("_sourceMessageIds", []))
+            existing.update(wf.get("_sourceEventIds", []))
+            existing.update(wf.get("_sourceFileIds", []))
+            existing.update(wf.get("_allSourceIds", []))
+            if existing & source_set:
+                return True
+        return False
+
+    try:
+        snapshots = (
+            _flows_collection(uid or "")
+            .order_by("updatedAt", direction="DESCENDING")
+            .limit(50)
+            .stream()
+        )
+        for snapshot in snapshots:
+            data = snapshot.to_dict() or {}
+            existing = set()
+            existing.update(data.get("_sourceMessageIds", []))
+            existing.update(data.get("_sourceEventIds", []))
+            existing.update(data.get("_sourceFileIds", []))
+            existing.update(data.get("_allSourceIds", []))
+            if existing & source_set:
+                return True
+    except Exception:
+        # Firestore disabled — check memory only (already checked above, so return False)
+        pass
+    return False
+
+
+def has_existing_flow_multi(uid: str | None, all_source_ids: list[str]) -> bool:
+    """Dedup for unified multi-service flows (message+event+file ids)."""
+    return _has_overlap(uid, all_source_ids)
+
+
+def delete_workflow(uid: str, workflow_id: str) -> bool:
+    """Delete a workflow by ID.
+
+    Returns True if deleted, False if not found.
+    """
+    if _firestore:
+        try:
+            doc_ref = _flows_collection(uid).document(workflow_id)
+            doc = doc_ref.get()
+            if doc.exists:
+                doc_ref.delete()
+                return True
+            return False
+        except Exception:
+            return False
+    else:
+        if workflow_id in _memory_workflows:
+            del _memory_workflows[workflow_id]
+            return True
+        return False

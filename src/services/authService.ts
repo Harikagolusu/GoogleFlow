@@ -29,6 +29,9 @@ let currentUser: User | null = null;
 let authResolved = !isFirebaseConfigured();
 let initialized = false;
 const listeners = new Set<AuthListener>();
+// Promise that resolves when Firebase Auth has fired its initial state.
+let authReadyPromise: Promise<boolean> | null = null;
+let authReadyResolved = false;
 
 function notify(): void {
   const state = getAuthState();
@@ -38,10 +41,17 @@ function notify(): void {
 function init(): void {
   if (!firebaseAuth || initialized) return;
   initialized = true;
-  onAuthStateChanged(firebaseAuth, user => {
-    currentUser = user;
-    authResolved = true;
-    notify();
+  authReadyPromise = new Promise<boolean>(resolve => {
+    const unsubscribe = onAuthStateChanged(firebaseAuth!, user => {
+      currentUser = user;
+      authResolved = true;
+      if (!authReadyResolved) {
+        authReadyResolved = true;
+        resolve(!!user);
+      }
+      notify();
+      unsubscribe();
+    });
   });
 }
 
@@ -92,9 +102,35 @@ export const authService = {
   /**
    * Fresh Firebase ID token for the signed-in user (used as the backend
    * Authorization bearer token), or null when signed out / demo mode.
+   * Rejects if Firebase Auth is not ready.
    */
   async getIdToken(): Promise<string | null> {
     if (!firebaseAuth || !currentUser) return null;
+    try {
+      return await currentUser.getIdToken();
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Wait for Firebase Auth to finish initializing and return a valid token.
+   * Resolves immediately if already ready. Returns null if not signed in.
+   */
+  async waitForToken(): Promise<string | null> {
+    if (!firebaseAuth) return null;
+    init();
+    if (authResolved && currentUser) {
+      try {
+        return await currentUser.getIdToken();
+      } catch {
+        return null;
+      }
+    }
+    if (authReadyPromise) {
+      await authReadyPromise;
+    }
+    if (!currentUser) return null;
     try {
       return await currentUser.getIdToken();
     } catch {

@@ -85,12 +85,19 @@ class FastAPI:
         pass
 
 
+def _QueryStub(**kwargs):
+    return kwargs.get("default", None)
+
+
 fastapi = types.ModuleType("fastapi")
 fastapi.FastAPI = FastAPI
 fastapi.HTTPException = HTTPException
 fastapi.Request = object  # handlers only use request.headers; object suffices
+fastapi.Query = _QueryStub
 cors_mod = types.ModuleType("fastapi.middleware.cors")
 cors_mod.CORSMiddleware = CORSMiddleware
+responses_mod = types.ModuleType("fastapi.responses")
+responses_mod.RedirectResponse = lambda *a, **k: None
 dotenv = types.ModuleType("dotenv")
 dotenv.load_dotenv = lambda *a, **k: False
 
@@ -98,6 +105,7 @@ sys.modules["pydantic"] = pydantic
 sys.modules["fastapi"] = fastapi
 sys.modules["fastapi.middleware"] = types.ModuleType("fastapi.middleware")
 sys.modules["fastapi.middleware.cors"] = cors_mod
+sys.modules["fastapi.responses"] = responses_mod
 sys.modules["dotenv"] = dotenv
 
 

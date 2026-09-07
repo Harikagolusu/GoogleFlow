@@ -1,0 +1,57 @@
+# =============================================================================
+# Docker ignore — keep secrets out of images
+# =============================================================================
+
+# Environment files (contain real credentials)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Firebase credentials
+firebase-credentials/
+**/firebase-credentials/
+*.json
+!package.json
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+venv/
+backend/.venv/
+
+# Node
+node_modules/
+dist/
+.npm
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+coverage/
+htmlcov/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+
+# GCP specific
+.git/

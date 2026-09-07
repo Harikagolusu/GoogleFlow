@@ -23,7 +23,14 @@ export const Dashboard: React.FC = () => {
     return <div className="p-8 text-center text-gray-500 mt-20">Loading...</div>;
   }
 
-  const featuredFlow = workflows.find(w => w.readiness < 100) || workflows[0];
+  const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  const sortedByPriority = [...workflows].sort((a, b) => {
+    const pa = priorityOrder[a.priority || 'medium'] ?? 1;
+    const pb = priorityOrder[b.priority || 'medium'] ?? 1;
+    if (pa !== pb) return pa - pb;
+    return (a.readiness < 100 ? 0 : 1) - (b.readiness < 100 ? 0 : 1);
+  });
+  const featuredFlow = sortedByPriority[0];
   const recentFlows = workflows.filter(w => w.id !== featuredFlow?.id);
 
   return (

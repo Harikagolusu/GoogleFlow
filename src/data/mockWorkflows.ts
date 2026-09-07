@@ -16,7 +16,7 @@ export const mockWorkflows: Workflow[] = [
       { id: 'c3', title: 'Company research', completed: false },
       { id: 'c4', title: 'Interview preparation', completed: false },
     ],
-    connectedServices: ['Gmail', 'Drive', 'Calendar', 'Maps', 'YouTube', 'News'],
+    connectedServices: ['Gmail', 'Drive', 'Calendar', 'Maps', 'YouTube'],
   },
   {
     id: 'delhi-trip',
@@ -98,20 +98,6 @@ export const mockServices: Service[] = [
     name: 'Search',
     icon: 'Search',
     description: 'Web search for research and references.',
-    connected: true,
-  },
-  {
-    id: 'news',
-    name: 'News',
-    icon: 'Newspaper',
-    description: 'Curated news and updates relevant to your flows.',
-    connected: true,
-  },
-  {
-    id: 'photos',
-    name: 'Photos',
-    icon: 'Image',
-    description: 'Manages and organizes your photos.',
     connected: true,
   },
   {

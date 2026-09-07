@@ -82,9 +82,16 @@ def verify_id_token(id_token: str) -> str:
     Raises an exception on invalid/expired tokens — callers translate that
     into an HTTP 401.
     """
-    from firebase_admin import auth as firebase_auth
+    import firebase_admin.auth as firebase_auth
+    import logging
 
-    decoded = firebase_auth.verify_id_token(id_token, app=_firebase_app)
+    try:
+        decoded = firebase_auth.verify_id_token(id_token, app=_firebase_app)
+    except Exception as exc:
+        logging.warning("verify_id_token failed: %s: %s | token prefix: %s",
+                       type(exc).__name__, str(exc)[:200], id_token[:30] if id_token else "empty")
+        raise
+
     uid = decoded.get("uid")
     if not uid:
         raise ValueError("ID token does not contain a uid")

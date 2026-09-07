@@ -2,11 +2,13 @@
 // React pages never call fetch directly; they go through workflowService,
 // which uses these helpers.
 
-const DEFAULT_API_URL = 'http://localhost:8000';
-
 export function getApiUrl(): string {
   const configured = import.meta.env.VITE_API_URL as string | undefined;
-  return (configured || DEFAULT_API_URL).replace(/\/+$/, '');
+  if (configured) return configured.replace(/\/+$/, '');
+  // In dev, use Vite proxy (same origin) to avoid CORS issues.
+  if (import.meta.env.DEV) return '';
+  // In production (Cloud Run), use same origin - API is served from the same domain.
+  return '';
 }
 
 export class ApiError extends Error {

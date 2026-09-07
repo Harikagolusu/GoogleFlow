@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { workflowService } from '../services/workflowService';
 import { authService } from '../services/authService';
@@ -10,7 +10,8 @@ import { GoogleGMark as GoogleMark } from '../components/ServiceLogo';
 export const Ask: React.FC = () => {
   const navigate = useNavigate();
   const { signedIn, loading: authLoading, isAuthEnabled } = useAuthUser();
-  const [query, setQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const [query, setQuery] = useState(searchParams.get('query') || '');
   const [loading, setLoading] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState('');
