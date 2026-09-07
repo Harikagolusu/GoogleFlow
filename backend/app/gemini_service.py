@@ -240,7 +240,13 @@ def _call_gemini_with_fallback(
 ) -> str:
     """Call Gemini with automatic model fallback on 404/deprecation errors."""
     from google.genai import types
-    import google.genai.errors as genai_errors
+
+    try:
+        import google.genai.errors as genai_errors
+        _ClientError = genai_errors.ClientError
+    except (ImportError, AttributeError):
+        genai_errors = None
+        _ClientError = Exception
 
     configured_model = os.getenv("GEMINI_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL
     # Fallback models when the configured one is deprecated.
@@ -273,13 +279,12 @@ def _call_gemini_with_fallback(
             return text
         except GeminiError:
             raise
-        except genai_errors.ClientError as exc:
-            last_error = exc
-            if "404" in str(exc) or "not found" in str(exc).lower() or "no longer available" in str(exc).lower():
-                logger.warning("Gemini model %s unavailable, trying next: %s", model, exc)
-                continue
-            raise GeminiError(f"Gemini request failed: {exc}") from exc
         except Exception as exc:
+            if genai_errors is not None and isinstance(exc, _ClientError):
+                last_error = exc
+                if "404" in str(exc) or "not found" in str(exc).lower() or "no longer available" in str(exc).lower():
+                    logger.warning("Gemini model %s unavailable, trying next: %s", model, exc)
+                    continue
             raise GeminiError(f"Gemini request failed: {exc}") from exc
 
     raise GeminiError(f"All Gemini models failed. Last error: {last_error}")

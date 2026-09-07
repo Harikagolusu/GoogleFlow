@@ -1178,6 +1178,10 @@ def unified_analyze(request: Request, payload: AnalyzeRequest | None = None) -> 
         )
     except gemini_service.GeminiError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        import traceback
+        diag.error("Unexpected error in analyze: %s", "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
+        raise HTTPException(status_code=502, detail=f"Analysis failed: {exc}") from exc
 
     diag.info("Gemini returned flows=%d low_conf_ignored=%d", len(analyzed), low_conf_ignored)
     flows_created = 0
