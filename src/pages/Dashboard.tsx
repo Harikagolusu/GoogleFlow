@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles, ChevronRight, RefreshCw } from 'lucide-react';
+import { Sparkles, ChevronRight, RefreshCw, Zap } from 'lucide-react';
 import { workflowService } from '../services/workflowService';
 import type { Workflow } from '../types/workflow';
 import type { Service } from '../types/service';
@@ -12,6 +12,8 @@ export const Dashboard: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzeMessage, setAnalyzeMessage] = useState('');
 
   const isLoggedIn = authService.isAvailable() && Boolean(authService.getCurrentUser());
 
@@ -31,6 +33,25 @@ export const Dashboard: React.FC = () => {
     setIsRefreshing(true);
     await loadData();
     setIsRefreshing(false);
+  }
+
+  async function handleFetchLatestFlows() {
+    if (!isLoggedIn) return;
+    setIsAnalyzing(true);
+    setAnalyzeMessage('');
+    try {
+      const result = await workflowService.analyzeServices();
+      if (result.flowsCreated > 0) {
+        setAnalyzeMessage(`Found ${result.flowsCreated} new LifeFlow${result.flowsCreated > 1 ? 's' : ''} from your connected services!`);
+      } else {
+        setAnalyzeMessage(result.message || 'No new LifeFlows found.');
+      }
+      await loadData();
+    } catch (err) {
+      setAnalyzeMessage('Failed to fetch LifeFlows. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
+    }
   }
 
   if (loading) {
@@ -79,6 +100,22 @@ export const Dashboard: React.FC = () => {
             </Link>
           ))}
         </div>
+
+        {isLoggedIn && (
+          <div className="mt-8">
+            <button
+              onClick={handleFetchLatestFlows}
+              disabled={isAnalyzing}
+              className="inline-flex items-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-full px-6 py-3 font-medium transition-colors disabled:opacity-50"
+            >
+              <Zap className={`w-4 h-4 ${isAnalyzing ? 'animate-pulse' : ''}`} />
+              {isAnalyzing ? 'Analyzing...' : 'Fetch Latest Flows'}
+            </button>
+            {analyzeMessage && (
+              <p className="mt-3 text-sm text-gray-600">{analyzeMessage}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {featuredFlow && (
