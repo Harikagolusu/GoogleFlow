@@ -108,14 +108,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class COOPMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
-        return response
-
-app.add_middleware(COOPMiddleware)
-
 # Mount static files (JS, CSS, images) from the React build
 _dist_path = Path(FRONTEND_DIST)
 if _dist_path.exists():
