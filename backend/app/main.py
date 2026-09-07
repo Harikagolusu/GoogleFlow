@@ -34,6 +34,8 @@ from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
+FRONTEND_DIST = os.environ.get("FRONTEND_DIST", str(Path(__file__).resolve().parent.parent.parent / "dist"))
+
 from . import firebase_service, gemini_service, workflow_store
 from .schemas import (
     AskRequest,
@@ -104,6 +106,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static files (JS, CSS, images) from the React build
+_dist_path = Path(FRONTEND_DIST)
+if _dist_path.exists():
+    app.mount("/assets", StaticFiles(directory=str(_dist_path / "assets"), html=False), name="static")
 
 
 DEMO_UID = "demo-user"
@@ -1247,7 +1254,7 @@ def unified_analyze(request: Request, payload: AnalyzeRequest | None = None) -> 
 # Production: Serve React frontend
 # ---------------------------------------------------------------------------
 
-FRONTEND_DIST = os.environ.get("FRONTEND_DIST", str(BACKEND_DIR.parent / "dist"))
+
 
 
 @app.get("/")
@@ -1261,7 +1268,6 @@ async def serve_frontend() -> FileResponse:
 @app.get("/{path:path}")
 async def serve_spa(path: str) -> FileResponse:
     """Serve React SPA for any non-API route (supports React Router)."""
-    # API routes are matched first by FastAPI, so this only runs for non-/api/* paths.
     if path.startswith("api/"):
         raise HTTPException(status_code=404, detail="API endpoint not found")
     index_path = Path(FRONTEND_DIST) / "index.html"
