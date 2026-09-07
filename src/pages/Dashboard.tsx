@@ -102,14 +102,14 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {isLoggedIn && (
-          <div className="mt-8">
+          <div className="w-full max-w-2xl mx-auto mt-6">
             <button
               onClick={handleFetchLatestFlows}
               disabled={isAnalyzing}
-              className="inline-flex items-center gap-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-full px-6 py-3 font-medium transition-colors disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 border border-amber-200 text-amber-700 rounded-full px-6 py-4 font-medium flex items-center justify-center gap-3 transition-all disabled:opacity-50"
             >
-              <Zap className={`w-4 h-4 ${isAnalyzing ? 'animate-pulse' : ''}`} />
-              {isAnalyzing ? 'Analyzing...' : 'Fetch Latest Flows'}
+              <Zap className={`w-5 h-5 ${isAnalyzing ? 'animate-pulse' : ''}`} />
+              {isAnalyzing ? 'Analyzing your Gmail, Calendar & Drive...' : '⚡ Fetch Latest Flows from Gmail & Calendar'}
             </button>
             {analyzeMessage && (
               <p className="mt-3 text-sm text-gray-600">{analyzeMessage}</p>
