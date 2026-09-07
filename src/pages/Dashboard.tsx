@@ -5,9 +5,10 @@ import { workflowService } from '../services/workflowService';
 import type { Workflow } from '../types/workflow';
 import type { Service } from '../types/service';
 import { ServiceLogo } from '../components/ServiceLogo';
-import { authService } from '../services/authService';
+import { useAuthUser } from '../hooks/useAuthUser';
 
 export const Dashboard: React.FC = () => {
+  const { signedIn, loading: authLoading } = useAuthUser();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,11 +16,9 @@ export const Dashboard: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzeMessage, setAnalyzeMessage] = useState('');
 
-  const isLoggedIn = authService.isAvailable() && Boolean(authService.getCurrentUser());
-
   useEffect(() => {
     loadData();
-  }, []);
+  }, [signedIn]);
 
   async function loadData() {
     setLoading(true);
@@ -36,7 +35,7 @@ export const Dashboard: React.FC = () => {
   }
 
   async function handleFetchLatestFlows() {
-    if (!isLoggedIn) return;
+    if (!signedIn) return;
     setIsAnalyzing(true);
     setAnalyzeMessage('');
     try {
@@ -101,7 +100,7 @@ export const Dashboard: React.FC = () => {
           ))}
         </div>
 
-        {isLoggedIn && (
+        {signedIn && (
           <div className="w-full max-w-2xl mx-auto mt-6">
             <button
               onClick={handleFetchLatestFlows}
@@ -176,11 +175,11 @@ export const Dashboard: React.FC = () => {
             <div className="text-4xl mb-4">🚀</div>
             <h3 className="text-xl font-medium text-gray-900 mb-2">No LifeFlows yet</h3>
             <p className="text-gray-500 mb-6">
-              {isLoggedIn
+              {signedIn
                 ? 'Create your first LifeFlow by asking what you\'d like to accomplish.'
                 : 'Sign in with Google to create and manage your LifeFlows.'}
             </p>
-            {isLoggedIn ? (
+            {signedIn ? (
               <Link
                 to="/ask"
                 className="inline-flex items-center gap-2 bg-google-blue hover:bg-blue-600 text-white rounded-full px-6 py-3 font-medium transition-colors"
