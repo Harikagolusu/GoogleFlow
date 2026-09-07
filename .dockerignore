@@ -11,8 +11,6 @@
 # Firebase credentials
 firebase-credentials/
 **/firebase-credentials/
-*.json
-!package.json
 
 # Git
 .git
@@ -52,6 +50,3 @@ htmlcov/
 # Docker
 Dockerfile*
 docker-compose*.yml
-
-# GCP specific
-.git/
