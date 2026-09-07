@@ -111,7 +111,7 @@ app.add_middleware(
 class COOPMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
-        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+        response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
         return response
 
 app.add_middleware(COOPMiddleware)
