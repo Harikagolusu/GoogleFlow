@@ -4,7 +4,7 @@
 
 FROM python:3.11-slim
 
-# Install Node.js 20 and npm
+# Install Node.js 20
 RUN apt-get update && apt-get install -y curl && \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y nodejs && \
@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y curl && \
 
 WORKDIR /app
 
-# Copy frontend build files and build
+# Copy and build frontend
 COPY package*.json ./
 RUN npm ci
 
@@ -20,16 +20,13 @@ COPY . .
 RUN npm run build
 
 # Install backend dependencies
-COPY backend/requirements.txt /app/backend/requirements.txt
-RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+COPY backend/requirements.txt ./backend_requirements.txt
+RUN pip install --no-cache-dir -r ./backend_requirements.txt
 
 # Copy backend source
 COPY backend/ /app/backend/
 
-# Copy built frontend
-COPY dist/ /app/dist/
-
-# Environment variables for production
+# Environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
 ENV FRONTEND_DIST=/app/dist
