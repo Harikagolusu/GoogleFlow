@@ -8,7 +8,7 @@ import { ServiceLogo } from '../components/ServiceLogo';
 import { useAuthUser } from '../hooks/useAuthUser';
 
 export const Dashboard: React.FC = () => {
-  const { signedIn, loading: authLoading } = useAuthUser();
+  const { signedIn } = useAuthUser();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
